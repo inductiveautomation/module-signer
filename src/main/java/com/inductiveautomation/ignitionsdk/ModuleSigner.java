@@ -6,6 +6,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.CopyOption;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -21,6 +24,7 @@ import java.security.KeyStore;
 import java.security.PrivateKey;
 import java.security.Signature;
 import java.security.interfaces.RSAPrivateKey;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,7 +47,7 @@ public class ModuleSigner {
     }
 
     public void signModule(File moduleFileIn, File moduleFileOut) throws IOException {
-        /** Filename -> Base64-encoded SHA-256 hash of file contents. */
+        /** Filename -> Base64-encoded SHA256withRSA asymmetric signature of file contents. */
         Properties signatures = new Properties();
 
         try (FileSystem zfsIn = zipFileSystem(moduleFileIn);
@@ -55,11 +59,18 @@ public class ModuleSigner {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     try {
+                        System.out.println("--- signing ---");
+
                         String filename = file.toString();
+                        System.out.println("filename: " + filename);
 
                         byte[] fbs = Files.readAllBytes(file);
-                        byte[] sha = sha256(privateKey, fbs);
-                        String b64 = Base64.getEncoder().encodeToString(sha);
+
+                        byte[] sig = asymmetricSignature(privateKey, fbs);
+                        String b64 = Base64.getEncoder().encodeToString(sig);
+
+                        System.out.println("signature: " + Arrays.toString(sig));
+                        System.out.println("signature_b64: " + b64);
 
                         Files.copy(
                                 file, zfsOut.getPath(filename),
@@ -75,18 +86,18 @@ public class ModuleSigner {
             });
 
             OutputStream signaturesOutputStream = zfsOut.provider().newOutputStream(
-                    zfsOut.getPath("/signatures.properties"), StandardOpenOption.CREATE_NEW);
+                    zfsOut.getPath("/signatures.properties"), StandardOpenOption.CREATE);
 
             signatures.store(signaturesOutputStream, null);
             signaturesOutputStream.flush();
             signaturesOutputStream.close();
 
-            Files.copy(chainInputStream, zfsOut.getPath("/certificates.p7b"));
+            Files.copy(chainInputStream, zfsOut.getPath("/certificates.p7b"), StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
 
-    private static byte[] sha256(PrivateKey privateKey, byte[] bs) throws GeneralSecurityException {
+    private static byte[] asymmetricSignature(PrivateKey privateKey, byte[] bs) throws GeneralSecurityException {
         Signature signature = Signature.getInstance("SHA256withRSA");
         signature.initSign(privateKey);
 
