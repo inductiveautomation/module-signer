@@ -1,23 +1,22 @@
 package com.inductiveautomation.ignitionsdk;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.io.IOUtils;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.CopyOption;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
@@ -29,12 +28,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
 
 public class ModuleSigner {
 
@@ -50,50 +43,50 @@ public class ModuleSigner {
         /** Filename -> Base64-encoded SHA256withRSA asymmetric signature of file contents. */
         Properties signatures = new Properties();
 
-        try (FileSystem zfsIn = zipFileSystem(moduleFileIn);
-             FileSystem zfsOut = zipFileSystem(moduleFileOut)) {
+        ZipMap zipMap = new ZipMap(moduleFileIn);
 
-            Path root = zfsIn.getPath("/");
+        for (String fileName : zipMap.keySet()) {
+            ZipMapFile file = zipMap.get(fileName);
+            if (!file.isDirectory()) {
+                fileName = "/" + fileName;
+                System.out.println("--- signing ---");
+                System.out.println(fileName);
 
-            Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    try {
-                        System.out.println("--- signing ---");
+                try {
+                    byte[] sig = asymmetricSignature(privateKey, file.getBytes());
+                    String b64 = Base64.getEncoder()
+                                       .encodeToString(sig);
 
-                        String filename = file.toString();
-                        System.out.println("filename: " + filename);
+                    signatures.put(fileName, b64);
 
-                        byte[] fbs = Files.readAllBytes(file);
-
-                        byte[] sig = asymmetricSignature(privateKey, fbs);
-                        String b64 = Base64.getEncoder().encodeToString(sig);
-
-                        System.out.println("signature: " + Arrays.toString(sig));
-                        System.out.println("signature_b64: " + b64);
-
-                        Files.copy(
-                                file, zfsOut.getPath(filename),
-                                StandardCopyOption.REPLACE_EXISTING);
-
-                        signatures.put(filename, b64);
-
-                        return super.visitFile(file, attrs);
-                    } catch (GeneralSecurityException e) {
-                        throw new IOException("signing failed", e);
-                    }
+                    System.out.println("signature: " + Arrays.toString(sig));
+                    System.out.println("signature_b64: " + b64);
+                } catch (GeneralSecurityException e) {
+                    throw new IOException("signing failed", e);
                 }
-            });
-
-            OutputStream signaturesOutputStream = zfsOut.provider().newOutputStream(
-                    zfsOut.getPath("/signatures.properties"), StandardOpenOption.CREATE);
-
-            signatures.store(signaturesOutputStream, null);
-            signaturesOutputStream.flush();
-            signaturesOutputStream.close();
-
-            Files.copy(chainInputStream, zfsOut.getPath("/certificates.p7b"), StandardCopyOption.REPLACE_EXISTING);
+            }
         }
+
+        // Write out the signatures properties to the zip file
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        signatures.store(pw, null);
+        pw.flush();
+        pw.close();
+
+        zipMap.put("signatures.properties", sw.toString()
+                                              .getBytes());
+
+        // Write out the cert chain to the zip file
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        IOUtils.copy(chainInputStream, bos);
+        bos.flush();
+
+        ZipMapFile certFile = new ZipMapFile(bos.toByteArray(), false);
+        zipMap.put("certificates.p7b", certFile);
+
+        // Finally, write out the full signed module
+        zipMap.writeToFile(moduleFileOut);
     }
 
 
@@ -133,7 +126,8 @@ public class ModuleSigner {
 
             File keyStoreFile = new File(commandLine.getOptionValue(OPT_KEY_STORE));
             String keyStorePwd = commandLine.getOptionValue(OPT_KEY_STORE_PWD, "");
-            String keyStoreType = keyStoreFile.toPath().endsWith("pfx") ? "pfx" : "jks";
+            String keyStoreType = keyStoreFile.toPath()
+                                              .endsWith("pfx") ? "pfx" : "jks";
 
             KeyStore keyStore = KeyStore.getInstance(keyStoreType);
             keyStore.load(new FileInputStream(keyStoreFile), keyStorePwd.toCharArray());
@@ -158,13 +152,39 @@ public class ModuleSigner {
         }
 
         private static Options makeOptions() {
-            Option keyStore = Option.builder().longOpt(OPT_KEY_STORE).required().hasArg().build();
-            Option keyStorePassword = Option.builder().longOpt(OPT_KEY_STORE_PWD).hasArg().build();
-            Option alias = Option.builder().longOpt(OPT_ALIAS).required().hasArg().build();
-            Option aliasPassword = Option.builder().longOpt(OPT_ALIAS_PWD).hasArg().build();
-            Option chain = Option.builder().longOpt(OPT_CHAIN).required().hasArg().build();
-            Option moduleIn = Option.builder().longOpt(OPT_MODULE_IN).required().hasArg().build();
-            Option moduleOut = Option.builder().longOpt(OPT_MODULE_OUT).required().hasArg().build();
+            Option keyStore = Option.builder()
+                                    .longOpt(OPT_KEY_STORE)
+                                    .required()
+                                    .hasArg()
+                                    .build();
+            Option keyStorePassword = Option.builder()
+                                            .longOpt(OPT_KEY_STORE_PWD)
+                                            .hasArg()
+                                            .build();
+            Option alias = Option.builder()
+                                 .longOpt(OPT_ALIAS)
+                                 .required()
+                                 .hasArg()
+                                 .build();
+            Option aliasPassword = Option.builder()
+                                         .longOpt(OPT_ALIAS_PWD)
+                                         .hasArg()
+                                         .build();
+            Option chain = Option.builder()
+                                 .longOpt(OPT_CHAIN)
+                                 .required()
+                                 .hasArg()
+                                 .build();
+            Option moduleIn = Option.builder()
+                                    .longOpt(OPT_MODULE_IN)
+                                    .required()
+                                    .hasArg()
+                                    .build();
+            Option moduleOut = Option.builder()
+                                     .longOpt(OPT_MODULE_OUT)
+                                     .required()
+                                     .hasArg()
+                                     .build();
 
             return new Options()
                     .addOption(keyStore)
