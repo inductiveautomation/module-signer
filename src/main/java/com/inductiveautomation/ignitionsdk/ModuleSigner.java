@@ -1,12 +1,5 @@
 package com.inductiveautomation.ignitionsdk;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.io.IOUtils;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,6 +21,13 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.io.IOUtils;
 
 public class ModuleSigner {
 
@@ -153,38 +153,44 @@ public class ModuleSigner {
 
         private static Options makeOptions() {
             Option keyStore = Option.builder()
-                                    .longOpt(OPT_KEY_STORE)
-                                    .required()
-                                    .hasArg()
-                                    .build();
+                    .longOpt(OPT_KEY_STORE)
+                    .required()
+                    .hasArg()
+                    .build();
+
             Option keyStorePassword = Option.builder()
-                                            .longOpt(OPT_KEY_STORE_PWD)
-                                            .hasArg()
-                                            .build();
+                    .longOpt(OPT_KEY_STORE_PWD)
+                    .hasArg()
+                    .build();
+
             Option alias = Option.builder()
-                                 .longOpt(OPT_ALIAS)
-                                 .required()
-                                 .hasArg()
-                                 .build();
+                    .longOpt(OPT_ALIAS)
+                    .required()
+                    .hasArg()
+                    .build();
+
             Option aliasPassword = Option.builder()
-                                         .longOpt(OPT_ALIAS_PWD)
-                                         .hasArg()
-                                         .build();
+                    .longOpt(OPT_ALIAS_PWD)
+                    .hasArg()
+                    .build();
+
             Option chain = Option.builder()
-                                 .longOpt(OPT_CHAIN)
-                                 .required()
-                                 .hasArg()
-                                 .build();
+                    .longOpt(OPT_CHAIN)
+                    .required()
+                    .hasArg()
+                    .build();
+
             Option moduleIn = Option.builder()
-                                    .longOpt(OPT_MODULE_IN)
-                                    .required()
-                                    .hasArg()
-                                    .build();
+                    .longOpt(OPT_MODULE_IN)
+                    .required()
+                    .hasArg()
+                    .build();
+
             Option moduleOut = Option.builder()
-                                     .longOpt(OPT_MODULE_OUT)
-                                     .required()
-                                     .hasArg()
-                                     .build();
+                    .longOpt(OPT_MODULE_OUT)
+                    .required()
+                    .hasArg()
+                    .build();
 
             return new Options()
                     .addOption(keyStore)
