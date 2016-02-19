@@ -16,15 +16,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
-/**
- * Copied from SRCommon. The ZipMap provides a convenient way of working with zip files by providing a {@link Map} that
- * is backed by a zip file.
- * <p/>
- * A variety of constructors are available for creating the ZipMap. Once loaded, you can work with file objects as you
- * would work with any normal map. To save changes, you must call writeToFile.
- *
- * @author Kevin
- */
+
 public class ZipMap implements Map<String, ZipMapFile> {
 
     private Map<String, ZipMapFile> fileMap;
@@ -34,7 +26,7 @@ public class ZipMap implements Map<String, ZipMapFile> {
      * #writeToFile(OutputStream)}.
      */
     public ZipMap() {
-        fileMap = new HashMap<String, ZipMapFile>();
+        fileMap = new HashMap<>();
     }
 
     /**
@@ -56,13 +48,13 @@ public class ZipMap implements Map<String, ZipMapFile> {
      * @throws IOException
      */
     public ZipMap(InputStream zipFile) throws IOException {
-        fileMap = new HashMap<String, ZipMapFile>();
+        fileMap = new HashMap<>();
 
         ZipInputStream zipIn = null;
 
         try {
             zipIn = new ZipInputStream(zipFile);
-            ZipEntry entry = null;
+            ZipEntry entry;
 
             byte[] bytes = new byte[4096];
 

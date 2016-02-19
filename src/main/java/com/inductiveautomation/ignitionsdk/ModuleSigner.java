@@ -7,9 +7,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.net.URI;
-import java.nio.file.FileSystem;
-import java.nio.file.FileSystems;
 import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
@@ -18,8 +15,6 @@ import java.security.Signature;
 import java.security.interfaces.RSAPrivateKey;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
@@ -97,17 +92,6 @@ public class ModuleSigner {
         signature.update(bs);
 
         return signature.sign();
-    }
-
-    private static FileSystem zipFileSystem(File file) throws IOException {
-        URI uri = URI.create("jar:file:" + file.getAbsolutePath());
-
-        Map<String, String> env = new HashMap<>();
-        if (!file.exists()) {
-            env.put("create", "true");
-        }
-
-        return FileSystems.newFileSystem(uri, env);
     }
 
     public static class Main {

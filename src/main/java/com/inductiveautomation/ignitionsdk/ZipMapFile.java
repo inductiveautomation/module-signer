@@ -4,9 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-/**
- * Created by mattg on 2/10/16. Copied from SRCommon.
- */
+
 public class ZipMapFile {
 
     private byte[] bytes;
