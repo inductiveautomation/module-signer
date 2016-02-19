@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.security.GeneralSecurityException;
@@ -23,6 +24,7 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.output.NullOutputStream;
 
 public class ModuleSigner {
 
@@ -35,6 +37,10 @@ public class ModuleSigner {
     }
 
     public void signModule(File moduleFileIn, File moduleFileOut) throws IOException {
+        signModule(System.out, moduleFileIn, moduleFileOut);
+    }
+
+    public void signModule(PrintStream printStream, File moduleFileIn, File moduleFileOut) throws IOException {
         /** Filename -> Base64-encoded SHA256withRSA asymmetric signature of file contents. */
         Properties signatures = new Properties();
 
@@ -44,18 +50,17 @@ public class ModuleSigner {
             ZipMapFile file = zipMap.get(fileName);
             if (!file.isDirectory()) {
                 fileName = "/" + fileName;
-                System.out.println("--- signing ---");
-                System.out.println(fileName);
+                printStream.println("--- signing ---");
+                printStream.println(fileName);
 
                 try {
                     byte[] sig = asymmetricSignature(privateKey, file.getBytes());
-                    String b64 = Base64.getEncoder()
-                                       .encodeToString(sig);
+                    String b64 = Base64.getEncoder().encodeToString(sig);
 
                     signatures.put(fileName, b64);
 
-                    System.out.println("signature: " + Arrays.toString(sig));
-                    System.out.println("signature_b64: " + b64);
+                    printStream.println("signature: " + Arrays.toString(sig));
+                    printStream.println("signature_b64: " + b64);
                 } catch (GeneralSecurityException e) {
                     throw new IOException("signing failed", e);
                 }
@@ -69,8 +74,7 @@ public class ModuleSigner {
         pw.flush();
         pw.close();
 
-        zipMap.put("signatures.properties", sw.toString()
-                                              .getBytes());
+        zipMap.put("signatures.properties", sw.toString().getBytes());
 
         // Write out the cert chain to the zip file
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -103,6 +107,7 @@ public class ModuleSigner {
         public static final String OPT_CHAIN = "chain";
         public static final String OPT_MODULE_IN = "module-in";
         public static final String OPT_MODULE_OUT = "module-out";
+        public static final String OPT_VERBOSE = "verbose";
 
         public static void main(String[] args) throws Exception {
             CommandLineParser parser = new DefaultParser();
@@ -110,8 +115,7 @@ public class ModuleSigner {
 
             File keyStoreFile = new File(commandLine.getOptionValue(OPT_KEY_STORE));
             String keyStorePwd = commandLine.getOptionValue(OPT_KEY_STORE_PWD, "");
-            String keyStoreType = keyStoreFile.toPath()
-                                              .endsWith("pfx") ? "pkcs12" : "jks";
+            String keyStoreType = keyStoreFile.toPath().endsWith("pfx") ? "pkcs12" : "jks";
 
             KeyStore keyStore = KeyStore.getInstance(keyStoreType);
             keyStore.load(new FileInputStream(keyStoreFile), keyStorePwd.toCharArray());
@@ -132,7 +136,10 @@ public class ModuleSigner {
 
             ModuleSigner moduleSigner = new ModuleSigner((RSAPrivateKey) privateKey, chainInputStream);
 
-            moduleSigner.signModule(moduleIn, moduleOut);
+            PrintStream printStream = commandLine.hasOption(OPT_VERBOSE) ?
+                    System.out : new PrintStream(NullOutputStream.NULL_OUTPUT_STREAM);
+
+            moduleSigner.signModule(printStream, moduleIn, moduleOut);
         }
 
         private static Options makeOptions() {
@@ -176,6 +183,11 @@ public class ModuleSigner {
                     .hasArg()
                     .build();
 
+            Option verbose = Option.builder("v")
+                    .longOpt(OPT_VERBOSE)
+                    .required(false)
+                    .build();
+
             return new Options()
                     .addOption(keyStore)
                     .addOption(keyStorePassword)
@@ -183,7 +195,8 @@ public class ModuleSigner {
                     .addOption(aliasPassword)
                     .addOption(chain)
                     .addOption(moduleIn)
-                    .addOption(moduleOut);
+                    .addOption(moduleOut)
+                    .addOption(verbose);
         }
 
     }
