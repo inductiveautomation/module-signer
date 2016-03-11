@@ -1,5 +1,11 @@
 # Getting started with module-signer
 
+## Prerequisites
+
+A Java Keystore (in jks or pfx format) containing either:
+* A self-generated and self-signed code signing certificate.
+* A code signing certificate, obtained from and signed by a CA, and the certificate chain that goes with it.
+
 ## Invocation
 
 Invocation from the command-line:
