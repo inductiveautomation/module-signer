@@ -12,8 +12,9 @@ import java.security.GeneralSecurityException;
 import java.security.Key;
 import java.security.KeyStore;
 import java.security.PrivateKey;
+import java.security.Provider;
+import java.security.Security;
 import java.security.Signature;
-import java.security.interfaces.RSAPrivateKey;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Properties;
@@ -25,13 +26,15 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.NullOutputStream;
+import sun.security.pkcs11.SunPKCS11;
 
+@SuppressWarnings("restriction")
 public class ModuleSigner {
 
-    private final RSAPrivateKey privateKey;
+    private final PrivateKey privateKey;
     private final InputStream chainInputStream;
 
-    public ModuleSigner(RSAPrivateKey privateKey, InputStream chainInputStream) {
+    public ModuleSigner(PrivateKey privateKey, InputStream chainInputStream) {
         this.privateKey = privateKey;
         this.chainInputStream = chainInputStream;
     }
@@ -107,25 +110,35 @@ public class ModuleSigner {
         public static final String OPT_CHAIN = "chain";
         public static final String OPT_MODULE_IN = "module-in";
         public static final String OPT_MODULE_OUT = "module-out";
+        public static final String OPT_PKCS11_CFG = "pkcs11-cfg";
         public static final String OPT_VERBOSE = "verbose";
 
         public static void main(String[] args) throws Exception {
             CommandLineParser parser = new DefaultParser();
             CommandLine commandLine = parser.parse(makeOptions(), args);
 
-            File keyStoreFile = new File(commandLine.getOptionValue(OPT_KEY_STORE));
+            KeyStore keyStore;
             String keyStorePwd = commandLine.getOptionValue(OPT_KEY_STORE_PWD, "");
-            String keyStoreType = keyStoreFile.toPath().endsWith("pfx") ? "pkcs12" : "jks";
-
-            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-            keyStore.load(new FileInputStream(keyStoreFile), keyStorePwd.toCharArray());
-
             String alias = commandLine.getOptionValue(OPT_ALIAS);
             String aliasPwd = commandLine.getOptionValue(OPT_ALIAS_PWD, "");
+
+            if (commandLine.hasOption(OPT_PKCS11_CFG)) {
+                Provider p = new SunPKCS11(commandLine.getOptionValue(OPT_PKCS11_CFG));
+                Security.addProvider(p);
+                keyStore = KeyStore.getInstance("PKCS11");
+                keyStore.load(null, keyStorePwd.toCharArray());
+            } else {
+                File keyStoreFile = new File(commandLine.getOptionValue(OPT_KEY_STORE));
+                String keyStoreType = keyStoreFile.toPath().endsWith("pfx") ? "pkcs12" : "jks";
+
+                keyStore = KeyStore.getInstance(keyStoreType);
+                keyStore.load(new FileInputStream(keyStoreFile), keyStorePwd.toCharArray());
+            }
+
             Key privateKey = keyStore.getKey(alias, aliasPwd.toCharArray());
 
-            if (!(privateKey instanceof RSAPrivateKey)) {
-                System.out.println("no RSAPrivateKey found for alias '" + alias + "'.");
+            if (privateKey == null || !privateKey.getAlgorithm().equalsIgnoreCase("RSA")) {
+                System.out.println("no RSA PrivateKey found for alias '" + alias + "'.");
                 System.exit(-1);
             }
 
@@ -134,7 +147,7 @@ public class ModuleSigner {
             File moduleIn = new File(commandLine.getOptionValue(OPT_MODULE_IN));
             File moduleOut = new File(commandLine.getOptionValue(OPT_MODULE_OUT));
 
-            ModuleSigner moduleSigner = new ModuleSigner((RSAPrivateKey) privateKey, chainInputStream);
+            ModuleSigner moduleSigner = new ModuleSigner((PrivateKey) privateKey, chainInputStream);
 
             PrintStream printStream = commandLine.hasOption(OPT_VERBOSE) ?
                     System.out : new PrintStream(NullOutputStream.NULL_OUTPUT_STREAM);
@@ -145,7 +158,7 @@ public class ModuleSigner {
         private static Options makeOptions() {
             Option keyStore = Option.builder()
                     .longOpt(OPT_KEY_STORE)
-                    .required()
+                    .required(false)
                     .hasArg()
                     .build();
 
@@ -183,6 +196,12 @@ public class ModuleSigner {
                     .hasArg()
                     .build();
 
+            Option pkcs11Cfg = Option.builder()
+                    .longOpt(OPT_PKCS11_CFG)
+                    .required(false)
+                    .hasArg()
+                    .build();
+
             Option verbose = Option.builder("v")
                     .longOpt(OPT_VERBOSE)
                     .required(false)
@@ -196,6 +215,7 @@ public class ModuleSigner {
                     .addOption(chain)
                     .addOption(moduleIn)
                     .addOption(moduleOut)
+                    .addOption(pkcs11Cfg)
                     .addOption(verbose);
         }
 
