@@ -26,7 +26,6 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.output.NullOutputStream;
-import sun.security.pkcs11.SunPKCS11;
 
 @SuppressWarnings("restriction")
 public class ModuleSigner {
@@ -123,7 +122,8 @@ public class ModuleSigner {
             String aliasPwd = commandLine.getOptionValue(OPT_ALIAS_PWD, "");
 
             if (commandLine.hasOption(OPT_PKCS11_CFG)) {
-                Provider p = new SunPKCS11(commandLine.getOptionValue(OPT_PKCS11_CFG));
+                Provider p = Security.getProvider("SunPKCS11");
+                p = p.configure(commandLine.getOptionValue(OPT_PKCS11_CFG));
                 Security.addProvider(p);
                 keyStore = KeyStore.getInstance("PKCS11");
                 keyStore.load(null, keyStorePwd.toCharArray());
