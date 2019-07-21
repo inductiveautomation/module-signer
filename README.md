@@ -2,9 +2,10 @@
 
 ## Prerequisites
 
-A Java Keystore (in jks or pfx format) containing either:
-* A self-generated and self-signed code signing certificate.
-* A code signing certificate, obtained from and signed by a CA, and the certificate chain that goes with it.
+* Java 11 installed and on your path.
+* A Java Keystore (in jks or pfx format) containing either:
+  * A self-generated and self-signed code signing certificate.
+  * A code signing certificate, obtained from and signed by a CA, and the certificate chain that goes with it.
 
 [Keystore Explorer](http://keystore-explorer.sourceforge.net/downloads.php) is an easy to use tool for creating and managing keystores and certificates.
 
