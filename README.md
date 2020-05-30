@@ -45,3 +45,77 @@ The path to the unsigned module.
 
 ### module-out
 The path the signed module will be written to.
+
+
+## Using as a Library via Maven
+
+This library has been built and published to the Inductive Automation artifact repository.  To use this as a dependency in a JVM project, simply add the IA repo to your artifact repositories, and then add as a typical maven dependency.
+
+
+#### Consuming Via Maven POM
+
+```
+    // in pom.xml
+
+    <repositories>
+        <repository>
+            <id>ia-releases</id>
+            <releases>true</releases>
+            <snapshots>false</snapshots>
+            <url>https://nexus.inductiveautomation.com/repository/inductiveautomation-releases/</url>
+        </repository>
+    </repositories>
+    </project>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.inductiveautomation.ignitionsdk</groupId>
+            <artifactId>module-signer</artifactId>
+            <version>YOUR_DESIRED_VERSION</version>
+        </dependency>
+    </dependencies>
+```
+
+#### Consuming Via Gradle buildscript
+
+```
+    // in build.gradle
+    repositories {
+        maven { url "https://nexus.inductiveautomation.com/repository/inductiveautomation-releases/" }
+    }
+
+    dependencies {
+        implementation("com.inductiveautomation.ignitionsdk:module-signer:YOUR_DESIRED_VERSION")
+    }
+
+```
+
+
+## Artifact Publishing
+
+To publish a copy of this artifact to a private repo, you'll need to configure your server settings as described in the [Maven deploy documentation](https://maven.apache.org/plugins/maven-deploy-plugin/usage.html). Specify the repo urls by directly editing the POM file and setting the urls.  Alternatively, you may set the properties through an active profile in your settings.xml file (generally located at `${user.home}/.m2/settings.xml`) as demonstrated below. 
+  
+Then simply execute `mvn deploy` to publish to your private repository.  For development and testing, `mvn install` will install the assembled artifact to your local maven .m2 repository.
+ 
+
+```
+<settings>
+<profiles>
+    <profile>
+        <id>inject-repo-url</id>
+        <properties>
+            <snapshotsRepoUrl>http://your-artifact-host/repository/snapshots/</snapshotsRepoUrl>
+            <releasesRepoUrl>http://your-artifact-host/repository/releases/</releasesRepoUrl>
+        </properties>
+    </profile>
+</profiles>
+<activeProfiles>
+    <activeProfile>inject-repo-url</activeProfile>
+</activeProfiles>
+
+// ...
+
+</settings>
+
+```
+
