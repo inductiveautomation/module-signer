@@ -129,7 +129,8 @@ public class ModuleSigner {
                 keyStore.load(null, keyStorePwd.toCharArray());
             } else {
                 File keyStoreFile = new File(commandLine.getOptionValue(OPT_KEY_STORE));
-                String keyStoreType = keyStoreFile.getCanonicalPath().endsWith("pfx") ? "pkcs12" : "jks";
+                String canonical = keyStoreFile.getCanonicalPath().toLowerCase();
+                String keyStoreType = (canonical.endsWith(".pfx") || canonical.endsWith(".p12")) ? "pkcs12" : "jks";
 
                 keyStore = KeyStore.getInstance(keyStoreType);
                 keyStore.load(new FileInputStream(keyStoreFile), keyStorePwd.toCharArray());
